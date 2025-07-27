@@ -1,41 +1,33 @@
+import os
 import streamlit as st
-from transformers import pipeline
+import openai
 
-st.set_page_config(page_title="REKA – Refleksi Karakter", layout="centered")
+st.set_page_config(page_title="REKA – Ruang Refleksi Karakter", layout="centered")
 
-@st.cache_resource
-def load_model():
-    return pipeline("text-generation", model="IzzulGod/GPT2-Indo-Instruct-Tuned")
-generator = load_model()
+openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 
-def buat_prompt(tema, isi):
-    return (
-        f"Tema: {tema}\n"
-        f"Pengguna: \"{isi}\"\n"
-        "Buat cerita reflektif pendek, lalu lanjutkan dengan saran praktis.\n\n"
-        "Cerita:\n"
-        "Akhir cerita\n"
-        "Saran:"
+def chat_gpt_response(prompt):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # bisa ganti ke "gpt-4.1" jika tersedia
+        messages=[
+            {"role": "system", "content": "Kamu adalah asisten yang empatik dan menenangkan dalam bahasa Indonesia."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+        max_tokens=300,
+        top_p=0.9,
+        frequency_penalty=0,
+        presence_penalty=0
     )
+    return response.choices[0].message.content.strip()
 
-tema = st.selectbox("Tema Refleksi:", ["Motivasi", "Emosi", "Spiritual", "Netral"])
-isi = st.text_area("Tuliskan perasaan atau cerita singkatmu...")
+st.title("REKA – Ruang Refleksi & Saran GPT")
 
-if st.button("Refleksikan & Saran 🌿"):
-    prompt = buat_prompt(tema, isi)
-    hasil = generator(prompt,
-                     max_new_tokens=150,
-                     do_sample=True,
-                     temperature=0.7,
-                     top_p=0.9,
-                     repetition_penalty=1.2)[0]["generated_text"]
-    bagian = hasil.split("Saran:")
-    cerita = bagian[0].replace(prompt, "").strip()
-    saran = bagian[1].strip() if len(bagian)>1 else ""
+tema = st.selectbox("Pilih Tema Refleksi:", ["Motivasi", "Emosi", "Spiritual", "Netral"])
+isi = st.text_area("Tuliskan apa yang kamu rasakan...")
 
-    if cerita:
-        st.markdown("## ✨ Cerita Reflektif:")
-        st.write(cerita)
-    if saran:
-        st.markdown("## 📝 Saran untukmu:")
-        st.write(saran)
+if st.button("Refleksikan & Saran"):
+    prompt = f"[Tema: {tema}]\nPengguna: \"{isi}\"\nBalas sebagai cerita reflektif singkat dan beri saran praktis yang hangat."
+    balasan = chat_gpt_response(prompt)
+    st.markdown("### ✨ Jawaban dari GPT:")
+    st.write(balasan)
